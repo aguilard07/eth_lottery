@@ -1,6 +1,7 @@
 from brownie import exceptions
 from scripts.deploy_lottery import deploy_eth_lottery
 from scripts.helpful_scripts import get_account
+from web3 import Web3
 
 import pytest
 
@@ -62,3 +63,13 @@ def test_can_enter_lottery():
         ticket, {"from": account, "value": eth_lottery.ticketValue()}
     )
     assert eth_lottery.players(0)[0] == account
+
+
+def test_fund_lottery():
+    account = get_account()
+    eth_lottery = deploy_eth_lottery()
+    eth_lottery.fundLottery({"from": account, "value": Web3.toWei(10, "ether")})
+    assert eth_lottery.balance() == Web3.toWei(10, "ether")
+    assert eth_lottery.firstPrize() == Web3.toWei(10 * 0.60, "ether")
+    assert eth_lottery.secondPrize() == Web3.toWei(10 * 0.25, "ether")
+    assert eth_lottery.thirdPrize() == Web3.toWei(10 * 0.15, "ether")
