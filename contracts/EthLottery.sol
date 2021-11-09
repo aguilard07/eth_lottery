@@ -7,7 +7,7 @@ contract EthLottery {
         Fund the lottery initially.
         Start the lottery.
         Enter the lottery.
-            Validate the tickets.
+            Validate the tickets. (Python API)
             Adjust the prizes.    
         End the lottery:
             Insert the lottery result.
@@ -22,13 +22,19 @@ contract EthLottery {
         CALCULATING_WINNERS
     }
 
+    struct Player {
+        address playerAddress;
+        string ticket;
+    }
+
     uint256 public ticketValue;
     uint256 public firstPrize; // 55% of the total fund.
     uint256 public secondPrize; // 20% of the total fund.
     uint256 public thirdPrize; // 10% of the total fund.
     uint256 earnings; // 15% of the total fund. (5% gas expenses).
 
-    mapping(address => string[]) public addressToTickets;
+    Player[] public players;
+    //mapping(address => string[]) public addressToTickets;
 
     LOTTERY_STATE public lotteryState;
 
@@ -50,6 +56,12 @@ contract EthLottery {
 
         //Requires a valid ticket
         require(validateTicket(lottoTicket), "Not a valid ticket.");
+
+        //Add the user to the players array.
+        players.push(Player(msg.sender, lottoTicket));
+
+        //recalculate the rewards and earnings.
+        calculatePrizesAndEarnings();
     }
 
     function validateTicket(string memory lottoTicket)
@@ -70,6 +82,15 @@ contract EthLottery {
         }
 
         return true;
+    }
+
+    function calculatePrizesAndEarnings() internal {
+        uint256 totalBalance = address(this).balance;
+
+        firstPrize = totalBalance * 0.55;
+        secondPrize = totalBalance * 0.20;
+        thirdPrize = totalBalance * 0.10;
+        earnings = totalBalance * 0.15;
     }
 
     function startLottery() public {
@@ -95,9 +116,10 @@ contract EthLottery {
         // End the lottery.
         //Note: only the owner can end the lottery.
         lotteryState = LOTTERY_STATE.CLOSED;
+        players = new Player[](0);
     }
 
-    function withdrawEarnings() public {
+    function withdrawEarnings() public payable {
         //Withdraw the earnings of the lotto.
         //Note: only the owner can withdraw the funds of the contract.
     }
