@@ -57,18 +57,16 @@ contract EthLottery {
         view
         returns (bool)
     {
-        //The ticket should be like : XX-XX-XX-XX-XX-XX where X is a number.
+        //The ticket should be like : XXXXXXXXXXXX where X is a number.
+
         bytes memory bytesLottoTicket = bytes(lottoTicket);
 
-        if (bytesLottoTicket.length != 17) return false; //Validate the length of the string.
+        if (bytesLottoTicket.length != 12) return false; //Validate the length of the string.
 
         //Validate that the string is numeric, using  the ASCII code (HEX) of each char.
-        for (uint256 i; i < bytesLottoTicket.length; i++) {
+        for (uint256 i = 0; i < bytesLottoTicket.length; i++) {
             bytes1 char = bytesLottoTicket[i];
-            if (char != 0x2D) {
-                // 0x2D in ASCII is "-"
-                if (char < 0x30 || char > 0x39) return false;
-            }
+            if (char < 0x30 || char > 0x39) return false;
         }
 
         return true;
