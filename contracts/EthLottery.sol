@@ -121,6 +121,13 @@ contract EthLottery is Ownable {
         delete players;
     }
 
+    function fundLottery() public payable onlyOwner {
+        uint256 amount = msg.value;
+        firstPrize = (amount * 60) / 100;
+        secondPrize = (amount * 25) / 100;
+        thirdPrize = (amount * 15) / 100;
+    }
+
     function withdrawEarnings() public payable onlyOwner {
         //Withdraw the earnings of the lotto.
         //Note: only the owner can withdraw the funds of the contract.
