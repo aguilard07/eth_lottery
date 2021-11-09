@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-contract EthLottery {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract EthLottery is Ownable {
     /**
         Fund the lottery initially.
         Start the lottery.
@@ -23,7 +25,7 @@ contract EthLottery {
     }
 
     struct Player {
-        address playerAddress;
+        address payable playerAddress;
         string ticket;
     }
 
@@ -58,7 +60,7 @@ contract EthLottery {
         require(validateTicket(lottoTicket), "Not a valid ticket.");
 
         //Add the user to the players array.
-        players.push(Player(msg.sender, lottoTicket));
+        players.push(Player(payable(msg.sender), lottoTicket));
 
         //recalculate the rewards and earnings.
         calculatePrizesAndEarnings();
@@ -87,13 +89,13 @@ contract EthLottery {
     function calculatePrizesAndEarnings() internal {
         uint256 totalBalance = address(this).balance;
 
-        firstPrize = totalBalance * 0.55;
-        secondPrize = totalBalance * 0.20;
-        thirdPrize = totalBalance * 0.10;
-        earnings = totalBalance * 0.15;
+        firstPrize = (totalBalance * 55) / 100; // 55%
+        secondPrize = (totalBalance * 20) / 100; // 20%
+        thirdPrize = (totalBalance * 10) / 100; // 10%
+        earnings = (totalBalance * 15) / 100; // 15%
     }
 
-    function startLottery() public {
+    function startLottery() public onlyOwner {
         // Start lottery.
         //Note: Only the owner can start the lottery.
         lotteryState = LOTTERY_STATE.OPEN;
@@ -112,14 +114,14 @@ contract EthLottery {
         //Transfers assets to the winners.
     }
 
-    function endLottery() public {
+    function endLottery() public onlyOwner {
         // End the lottery.
         //Note: only the owner can end the lottery.
         lotteryState = LOTTERY_STATE.CLOSED;
-        players = new Player[](0);
+        delete players;
     }
 
-    function withdrawEarnings() public payable {
+    function withdrawEarnings() public payable onlyOwner {
         //Withdraw the earnings of the lotto.
         //Note: only the owner can withdraw the funds of the contract.
     }
