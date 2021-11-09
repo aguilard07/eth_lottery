@@ -1,6 +1,33 @@
-from brownie import EthLottery
+from brownie import exceptions
 from scripts.deploy_lottery import deploy_eth_lottery
 from scripts.helpful_scripts import get_account
+
+import pytest
+
+
+def test_can_start_and_end_lottery():
+    account = get_account()
+    eth_lottery = deploy_eth_lottery()
+    eth_lottery.startLottery({"from": account})
+    assert eth_lottery.lotteryState() == 0
+    eth_lottery.endLottery({"from": account})
+    assert eth_lottery.lotteryState() == 1
+
+
+def test_only_owner_can_start_lottery():
+    account = get_account(index=1)  # The owner is the index 0.
+    eth_lottery = deploy_eth_lottery()
+    with pytest.raises(exceptions.VirtualMachineError):
+        eth_lottery.startLottery({"from": account})
+
+
+def test_only_owner_can_end_lottery():
+    owner_account = get_account()
+    other_account = get_account(index=1)
+    eth_lottery = deploy_eth_lottery()
+    eth_lottery.startLottery({"from": owner_account})
+    with pytest.raises(exceptions.VirtualMachineError):
+        eth_lottery.endLottery({"from": other_account})
 
 
 def test_ticket_validation():
@@ -14,3 +41,24 @@ def test_ticket_validation():
     assert eth_lottery.validateTicket(ticket2) == False
     assert eth_lottery.validateTicket(ticket3) == False
     assert eth_lottery.validateTicket(ticket4) == True
+
+
+def test_cannot_enter_lottery_until_is_open():
+    account = get_account()
+    eth_lottery = deploy_eth_lottery()
+    ticket = "010203251731"
+    with pytest.raises(exceptions.VirtualMachineError):
+        eth_lottery.enterLottery(
+            ticket, {"from": account, "value": eth_lottery.ticketValue()}
+        )
+
+
+def test_can_enter_lottery():
+    account = get_account()
+    eth_lottery = deploy_eth_lottery()
+    ticket = "010203251731"
+    eth_lottery.startLottery({"from": account})
+    eth_lottery.enterLottery(
+        ticket, {"from": account, "value": eth_lottery.ticketValue()}
+    )
+    assert eth_lottery.players(0)[0] == account
