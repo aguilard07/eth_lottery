@@ -26,14 +26,14 @@ contract EthLottery is Ownable {
 
     struct Player {
         address payable playerAddress;
-        string ticket;
+        bytes32 ticket;
     }
 
     uint256 public ticketValue;
-    uint256 public firstPrize; // 55% of the total fund.
+    uint256 public firstPrize; // 50% of the total fund.
     uint256 public secondPrize; // 20% of the total fund.
     uint256 public thirdPrize; // 10% of the total fund.
-    uint256 earnings; // 15% of the total fund. (5% gas expenses).
+    uint256 reserve; // 20% of the total fund
 
     Player[] public players;
     //mapping(address => string[]) public addressToTickets;
@@ -60,10 +60,9 @@ contract EthLottery is Ownable {
         require(validateTicket(lottoTicket), "Not a valid ticket.");
 
         //Add the user to the players array.
-        players.push(Player(payable(msg.sender), lottoTicket));
+        bytes32 bytesLottoTicket = bytes32(abi.encodePacked(lottoTicket));
 
-        //recalculate the rewards and earnings.
-        calculatePrizesAndEarnings();
+        players.push(Player(payable(msg.sender), bytesLottoTicket));
     }
 
     function validateTicket(string memory lottoTicket)
@@ -71,8 +70,6 @@ contract EthLottery is Ownable {
         view
         returns (bool)
     {
-        //The ticket should be like : XXXXXXXXXXXX where X is a number.
-
         bytes memory bytesLottoTicket = bytes(lottoTicket);
 
         if (bytesLottoTicket.length != 12) return false; //Validate the length of the string.
@@ -86,13 +83,13 @@ contract EthLottery is Ownable {
         return true;
     }
 
-    function calculatePrizesAndEarnings() internal {
+    function calculatePrizesAndReserve() internal {
         uint256 totalBalance = address(this).balance;
 
-        firstPrize = (totalBalance * 55) / 100; // 55%
-        secondPrize = (totalBalance * 20) / 100; // 20%
-        thirdPrize = (totalBalance * 10) / 100; // 10%
-        earnings = (totalBalance * 15) / 100; // 15%
+        firstPrize = (totalBalance * 50) / 100; //  50%
+        secondPrize = (totalBalance * 20) / 100; //  20%
+        thirdPrize = (totalBalance * 10) / 100; //  10%
+        reserve = (totalBalance * 20) / 100; //  20%
     }
 
     function startLottery() public onlyOwner {
@@ -121,11 +118,19 @@ contract EthLottery is Ownable {
         delete players;
     }
 
-    function fundLottery() public payable onlyOwner {
+    function fundLottery(
+        uint256 pFPrize,
+        uint256 pSPrize,
+        uint256 pTPrize
+    ) public payable onlyOwner {
+        require(
+            pFPrize + pSPrize + pTPrize == 100,
+            "The sum of the parameters should be 100"
+        );
         uint256 amount = msg.value;
-        firstPrize = (amount * 60) / 100;
-        secondPrize = (amount * 25) / 100;
-        thirdPrize = (amount * 15) / 100;
+        firstPrize = (amount * pFPrize) / 100;
+        secondPrize = (amount * pSPrize) / 100;
+        thirdPrize = (amount * pTPrize) / 100;
     }
 
     function withdrawEarnings() public payable onlyOwner {
