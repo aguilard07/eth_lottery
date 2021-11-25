@@ -11,8 +11,9 @@ def test_can_start_and_end_lottery():
     eth_lottery = deploy_eth_lottery()
     eth_lottery.startLottery({"from": account})
     assert eth_lottery.lotteryState() == 0
-    eth_lottery.endLottery({"from": account})
+    eth_lottery.endLottery("621601750774", {"from": account})
     assert eth_lottery.lotteryState() == 1
+    assert eth_lottery.lottoResults(0)[0] == "621601750774"
 
 
 def test_only_owner_can_start_lottery():
@@ -37,6 +38,7 @@ def test_ticket_validation():
     ticket2 = "11111111111111111"
     ticket3 = "123-1235-54"
     ticket4 = "010203251731"
+
     # Assert
     assert eth_lottery.validateTicket(ticket1) == False
     assert eth_lottery.validateTicket(ticket2) == False
@@ -68,7 +70,9 @@ def test_can_enter_lottery():
 def test_fund_lottery():
     account = get_account()
     eth_lottery = deploy_eth_lottery()
-    eth_lottery.fundLottery({"from": account, "value": Web3.toWei(10, "ether")})
+    eth_lottery.fundLottery(
+        60, 25, 15, {"from": account, "value": Web3.toWei(10, "ether")}
+    )
     assert eth_lottery.balance() == Web3.toWei(10, "ether")
     assert eth_lottery.firstPrize() == Web3.toWei(10 * 0.60, "ether")
     assert eth_lottery.secondPrize() == Web3.toWei(10 * 0.25, "ether")
