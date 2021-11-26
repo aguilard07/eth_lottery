@@ -32,7 +32,8 @@ contract EthLottery is Ownable, ChainlinkClient {
 
     address private oracle;
     bytes32 private numberOfWinnersJobId;
-    bytes32 private getWinnetsJobId;
+    bytes32 private getWinnersJobId;
+    uint256 private fee;
     IERC20 linkToken;
 
     uint256 public ticketValue;
@@ -40,6 +41,8 @@ contract EthLottery is Ownable, ChainlinkClient {
     uint256 public firstPrize; // 50% of the total fund.
     uint256 public secondPrize; // 20% of the total fund.
     uint256 public thirdPrize; // 10% of the total fund.
+    uint256 public lastNWinners;
+    int256 public currentWinnerIndex;
     uint256 reserve; // 20% of the total fund
 
     string[] public currentTickets;
@@ -50,16 +53,19 @@ contract EthLottery is Ownable, ChainlinkClient {
     constructor(
         address _oracle,
         bytes32 _numberOfWinnersJobId,
-        bytes32 _getWinnetsJobId,
+        bytes32 _getWinnersJobId,
         uint256 _ticketValue,
-        address _linkTokenContract
+        address _linkTokenAddress
     ) {
         oracle = _oracle;
         numberOfWinnersJobId = _numberOfWinnersJobId;
-        getWinnetsJobId = _getWinnetsJobId;
+        getWinnersJobId = _getWinnersJobId;
         lotteryState = LOTTERY_STATE.CLOSED;
         ticketValue = _ticketValue; //in wei (0.001 ETH) 10**15
-        linkToken = IERC20(_linkTokenContract);
+        linkToken = IERC20(_linkTokenAddress);
+        lastNWinners = 0;
+        fee = 0.1 * 10**18;
+        setPublicChainlinkToken();
     }
 
     //0. Fund lottery first time.
@@ -107,8 +113,8 @@ contract EthLottery is Ownable, ChainlinkClient {
     }
 
     function validateTicket(string memory lottoTicket)
-        public
-        view
+        internal
+        pure
         returns (bool)
     {
         bytes memory bytesLottoTicket = bytes(lottoTicket);
@@ -131,6 +137,79 @@ contract EthLottery is Ownable, ChainlinkClient {
         require(validateTicket(winnerTicket), "Not a valid ticket.");
         lottoResults.push(WinnerTicket(winnerTicket, block.timestamp));
         lotteryState = LOTTERY_STATE.CLOSED;
+
+        delete currentPlayers;
+        delete currentTickets;
+    }
+
+    // 4. Get Winners
+    function requestNumberOfWinners()
+        public
+        onlyOwner
+        returns (bytes32 requestId)
+    {
+        Chainlink.Request memory request = buildChainlinkRequest(
+            numberOfWinnersJobId,
+            address(this),
+            this.fulfillNumberOfWinners.selector
+        );
+
+        currentTickets = [
+            "621601750774",
+            "601501750774",
+            "621501750774",
+            "925641558974",
+            "424601750970",
+            "921601840678"
+        ];
+        request.add("username", "supercow");
+        request.add("password", "12345678");
+        request.add("winner_ticket", "621601750774");
+        request.addStringArray("tickets", currentTickets);
+
+        return sendChainlinkRequestTo(oracle, request, fee);
+    }
+
+    function fulfillNumberOfWinners(bytes32 _requestId, uint256 _lastNWinners)
+        public
+        recordChainlinkFulfillment(_requestId)
+    {
+        lastNWinners = _lastNWinners;
+    }
+
+    function requestWinnerData(int256 _winnerIndex)
+        public
+        onlyOwner
+        returns (bytes32 requestId)
+    {
+        Chainlink.Request memory request = buildChainlinkRequest(
+            getWinnersJobId,
+            address(this),
+            this.fulfillWinnerData.selector
+        );
+
+        currentTickets = [
+            "621601750774",
+            "601501750774",
+            "621501750774",
+            "925641558974",
+            "424601750970",
+            "921601840678"
+        ];
+        request.add("username", "supercow");
+        request.add("password", "12345678");
+        request.add("winner_ticket", "621601750774");
+        request.addStringArray("tickets", currentTickets);
+        request.addInt("winner_index", _winnerIndex);
+
+        return sendChainlinkRequestTo(oracle, request, fee);
+    }
+
+    function fulfillWinnerData(bytes32 _requestId, int256 _winnerIndex)
+        public
+        recordChainlinkFulfillment(_requestId)
+    {
+        currentWinnerIndex = _winnerIndex;
     }
 
     function calculatePrizesAndReserve() internal {
@@ -147,10 +226,10 @@ contract EthLottery is Ownable, ChainlinkClient {
     }
 
     /*
-    function getWinners() internal {
+    function getWinners() public {
         // Select the winners after the numbers are selected.
     }
-
+    /*
     function transferToWinners() internal {
         //Transfers assets to the winners.
     }

@@ -1,10 +1,11 @@
 from brownie import EthLottery, network, config
+from brownie.convert import to_bytes, to_address
 from scripts.helpful_scripts import deploy_mocks, get_account, fund_with_link
 import os
 
 
 def deploy_eth_lottery(
-    oracle_address,
+    oracle,
     number_of_winners_job_id,
     get_winners_job_id,
     ticket_value,
@@ -12,7 +13,7 @@ def deploy_eth_lottery(
     account = get_account(id="kovan-account")
     print("Deploying ETH Lottery...")
     eth_lottery = EthLottery.deploy(
-        oracle_address,
+        oracle,
         number_of_winners_job_id,
         get_winners_job_id,
         ticket_value,
@@ -27,16 +28,9 @@ def deploy_eth_lottery(
 
 
 def main():
-    # account = get_account(id="kovan-account")
-    #    link_token = deploy_mocks()
     deploy_eth_lottery(
         os.getenv("ORACLE_ADDRESS"),
-        os.getenv("NUMBER_OF_WINNERS_JOB_ID"),
-        os.getenv("GET_WINNERS_JOB_ID"),
+        bytes(os.getenv("NUMBER_OF_WINNERS_JOB_ID"), encoding="utf-8"),
+        bytes(os.getenv("GET_WINNERS_JOB_ID"), encoding="utf-8"),
         10 ** 15,
     )
-
-
-#    fund_with_link(
-#        contract_address=eth_lottery.address, account=account, link_token=link_token
-#    )
