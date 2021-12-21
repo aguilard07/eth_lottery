@@ -1,6 +1,9 @@
 from brownie import EthLottery, network, config
-from brownie.convert import to_bytes, to_address
+
+# from brownie.network import priority_fee
 from scripts.helpful_scripts import deploy_mocks, get_account, fund_with_link
+import web3
+
 import os
 
 
@@ -10,7 +13,7 @@ def deploy_eth_lottery(
     get_winners_job_id,
     ticket_value,
 ):
-    account = get_account(id="kovan-account")
+    account = get_account(id="rinkeby-account")
     print("Deploying ETH Lottery...")
     eth_lottery = EthLottery.deploy(
         oracle,

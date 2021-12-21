@@ -71,6 +71,8 @@ contract EthLottery is Ownable, ChainlinkClient {
     LOTTERY_STATE public lotteryState;
 
     event TicketBought(address playerAddress, string ticketNumber);
+    event WinnerFound(address winnerAddress, uint256 nAsserts);
+    event PrizeSent(address winnerAddress, uint256 nAsserts, uint256 amount);
 
     constructor(
         address _oracle,
@@ -157,18 +159,22 @@ contract EthLottery is Ownable, ChainlinkClient {
     }
 
     // 3. Close lottery.
-    function endLottery(string memory winnerTicket) public onlyOwner {
+    function endLottery(
+        string memory _winnerTicket,
+        string memory _username,
+        string memory _password
+    ) public onlyOwner {
         // End the lottery.
         //Note: only the owner can end the lottery.
         require(lotteryState == LOTTERY_STATE.OPEN);
-        require(validateTicket(winnerTicket), "Not a valid ticket.");
+        require(validateTicket(_winnerTicket), "Not a valid ticket.");
 
-        lottoResults.push(WinnerTicket(winnerTicket, block.timestamp));
+        lottoResults.push(WinnerTicket(_winnerTicket, block.timestamp));
         lotteryState = LOTTERY_STATE.CALCULATING_WINNERS;
 
         //Getting winners
-        requestNumberOfWinners();
-        getWinnersData();
+        requestNumberOfWinners(_winnerTicket, _username, _password);
+        getWinnersData(_winnerTicket, _username, _password);
         sendPrizesToWinners();
         recalculatePrizes();
         resetLists();
@@ -176,14 +182,18 @@ contract EthLottery is Ownable, ChainlinkClient {
     }
 
     // 4. Get Winners
-    function requestNumberOfWinners() internal returns (bytes32 requestId) {
+    function requestNumberOfWinners(
+        string memory _winnerTicket,
+        string memory _username,
+        string memory _password
+    ) internal returns (bytes32 requestId) {
         Chainlink.Request memory request = buildChainlinkRequest(
             numberOfWinnersJobId,
             address(this),
             this.fulfillNumberOfWinners.selector
         );
 
-        currentTickets = [
+        /* currentTickets = [
             "621601750774",
             "601501750774",
             "621501750774",
@@ -193,7 +203,8 @@ contract EthLottery is Ownable, ChainlinkClient {
         ];
         request.add("username", "supercow");
         request.add("password", "12345678");
-        request.add("winner_ticket", "621601750774");
+        request.add("winner_ticket", "621601750774");*/
+
         request.addStringArray("tickets", currentTickets);
 
         return sendChainlinkRequestTo(oracle, request, fee);
@@ -206,10 +217,12 @@ contract EthLottery is Ownable, ChainlinkClient {
         lastNWinners = _lastNWinners;
     }
 
-    function requestWinnerData(int256 _winnerIndex)
-        internal
-        returns (bytes32 requestId)
-    {
+    function requestWinnerData(
+        int256 _winnerIndex,
+        string memory _winnerTicket,
+        string memory _username,
+        string memory _password
+    ) internal returns (bytes32 requestId) {
         require(lastNWinners > 0, "There's no winners in the lottery.");
         Chainlink.Request memory request = buildChainlinkRequest(
             getWinnersJobId,
@@ -217,7 +230,7 @@ contract EthLottery is Ownable, ChainlinkClient {
             this.fulfillWinnerData.selector
         );
 
-        currentTickets = [
+        /*/ currentTickets = [
             "621601750774",
             "601501750774",
             "621501750774",
@@ -227,7 +240,11 @@ contract EthLottery is Ownable, ChainlinkClient {
         ];
         request.add("username", "supercow");
         request.add("password", "12345678");
-        request.add("winner_ticket", "621601750774");
+        request.add("winner_ticket", "621601750774");*/
+
+        request.add("username", _username);
+        request.add("password", _password);
+        request.add("winner_ticket", _winnerTicket);
         request.addStringArray("tickets", currentTickets);
         request.addInt("winner_index", _winnerIndex);
 
@@ -270,12 +287,21 @@ contract EthLottery is Ownable, ChainlinkClient {
                 ticketMatches
             )
         );
+
+        emit WinnerFound(
+            currentPlayers[winnerIndex].playerAddress,
+            uint256(nMatches)
+        );
     }
 
-    function getWinnersData() public onlyOwner {
+    function getWinnersData(
+        string memory _winnerTicket,
+        string memory _username,
+        string memory _password
+    ) public onlyOwner {
         if (lastNWinners > 0) {
             for (int256 i = 0; i < int256(lastNWinners); i++) {
-                requestWinnerData(i);
+                requestWinnerData(i, _winnerTicket, _username, _password);
             }
         }
     }
@@ -310,10 +336,13 @@ contract EthLottery is Ownable, ChainlinkClient {
                 winnerAddress = currentWinners[i].playerAddress;
                 if (ticketMatches == TICKET_MATCHES.FOUR) {
                     winnerAddress.transfer(thirdPrizePart);
+                    emit PrizeSent(winnerAddress, 4, thirdPrizePart);
                 } else if (ticketMatches == TICKET_MATCHES.FIVE) {
                     winnerAddress.transfer(secondPrizePart);
+                    emit PrizeSent(winnerAddress, 5, secondPrizePart);
                 } else if (ticketMatches == TICKET_MATCHES.SIX) {
                     winnerAddress.transfer(firstPrizePart);
+                    emit PrizeSent(winnerAddress, 6, firstPrizePart);
                 }
             }
         }
@@ -340,7 +369,20 @@ contract EthLottery is Ownable, ChainlinkClient {
         require(linkToken.transfer(msg.sender, amount), "Transfer failed.");
     }
 
-    function withdrawEarnings(uint256 amount) public payable onlyOwner {
+    function withdrawEarnings(uint256 amount) public onlyOwner {
+        require(amount <= earnings, "Amount exceeded earnings");
+        earnings -= amount;
         payable(msg.sender).transfer(amount);
+    }
+
+    function getTotalPrizes() public view returns (uint256) {
+        return firstPrize + secondPrize + thirdPrize;
+    }
+
+    function withdrawAll() public onlyOwner {
+        firstPrize = 0;
+        secondPrize = 0;
+        thirdPrize = 0;
+        payable(msg.sender).transfer(address(this).balance);
     }
 }
